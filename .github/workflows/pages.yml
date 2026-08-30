@@ -25,6 +25,8 @@ jobs:
         
       - name: Check build output
         run: |
+            echo "===== source/_posts ====="
+            find source/_posts -type f -maxdepth 2
             echo "===== public ====="
             find public -maxdepth 2 -type f | head -100
             echo "===== index.html ====="
