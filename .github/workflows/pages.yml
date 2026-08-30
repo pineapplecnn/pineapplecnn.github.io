@@ -25,14 +25,15 @@ jobs:
         
       - name: Check build output
         run: |
-            echo "===== source/_posts ====="
-            find source/_posts -type f -maxdepth 2
-            echo "===== public ====="
-            find public -maxdepth 2 -type f | head -100
-            echo "===== index.html ====="
-            wc -c public/index.html
-            echo "===== index content ====="
-            head -20 public/index.html
+            run: |
+            echo "===== Node ====="
+            node -v
+            echo "===== npm ====="
+            npm -v
+            echo "===== Hexo ====="
+            npx hexo version
+            echo "===== dependencies ====="
+            npm list --depth=0
         
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
