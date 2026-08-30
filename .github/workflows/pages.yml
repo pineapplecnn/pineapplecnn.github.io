@@ -22,7 +22,16 @@ jobs:
 
       - name: Build
         run: npm run build
-
+        
+      - name: Check build output
+        run: |
+        echo "===== public ====="
+        find public -maxdepth 2 -type f | head -100
+        echo "===== index.html ====="
+        wc -c public/index.html
+        echo "===== index content ====="
+        head -20 public/index.html
+        
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
