@@ -1,0 +1,14 @@
+<% if (typeof(isHead) !== 'undefined' && isHead) { %>
+    <!-- lightgallery CSS 由 main.js 动态加载 -->
+    <% if (theme.plugins.google_analytics) { %>
+        <%- partial('plugin/google-analytics') %>
+    <% } %>
+    <% if (theme.plugins.google_site_verification) { %>
+        <meta name="google-site-verification" content="<%= theme.plugins.google_site_verification %>" />
+    <% } %>
+    <% if (theme.plugins.baidu_analytics) { %>
+        <%- partial('plugin/baidu-analytics') %>
+    <% } %>
+<% } else { %>
+    <!-- lightgallery JS 由 main.js 动态加载 -->
+<% } %>

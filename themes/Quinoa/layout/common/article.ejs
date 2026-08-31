@@ -1,0 +1,318 @@
+<% if (!index) { %>
+<!-- Schema.org 结构化数据 - BlogPosting -->
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "BlogPosting",
+    "headline": "<%= post.title %>",
+    "url": "<%= post.permalink %>",
+    "datePublished": "<%= post.date.toISOString() %>",
+    "dateModified": "<%= (post.updated || post.date).toISOString() %>",
+    "author": {
+        "@type": "Person",
+        "name": "<%= config.author || '' %>"
+    },
+    "publisher": {
+        "@type": "Organization",
+        "name": "<%= config.title %>",
+        "logo": {
+            "@type": "ImageObject",
+            "url": "<%= config.url %>/logo.png"
+        }
+    },
+    "image": "<%= post.photos && post.photos.length ? post.photos[0] : (post.banner ? post.banner : config.url + '/logo.png') %>"<% if (post.keywords || (post.tags && post.tags.length)) { %>,
+    "keywords": "<%= post.keywords ? (Array.isArray(post.keywords) ? post.keywords.join(',') : post.keywords) : (post.tags && typeof post.tags.toArray === 'function' ? post.tags.toArray().map(tag => tag.name).join(',') : (Array.isArray(post.tags) ? post.tags.map(tag => tag.name || tag).join(',') : '')) %>"
+    <% } %>
+}
+</script>
+<% } %>
+<article id="<%= post.layout %>-<%= post.slug %>" class="article article-type-<%= post.layout %>">
+    <% if (post.referrer) { %>
+        <meta name="referrer" content="no-referrer" />
+    <% } %>
+    <!-- 支持csv数据的表格化显示 -->
+    <% if (post.csv_display && !index) { %>
+        <%- js('js/custom') %>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
+        <script src="https://d3js.org/d3.v7.min.js"></script>
+    <% } %>
+    <% if (!index && (post.toc || post.encrypt == true)) { %>
+        <div id="toc-wrapper" class="toc-wrapper">
+            <button id="toc-toggle-btn" class="toc-toggle-btn" title="收起/展开目录">
+                <span id="toc-toggle-icon" class="fa fa-angle-left"></span>
+            </button>
+            <div id="toc" class="toc-article" <% if (post.encrypt == true) { %>style="display:none" <% }%>>
+                <strong class="toc-title" id="toc-title" style="cursor: pointer;"><%= __('article.catalogue') %><span id="toc-title-icon" class="fa fa-angle-down" style="margin-left: 8px; font-size: 12px;"></span></strong>
+                <div id="toc-content" class="toc-content">
+                    <% if (post.encrypt == true) { %>
+                        <%- toc(post.origin || '', {list_number: false}) %>
+                    <% } else { %>
+                        <%- toc(post.content, {list_number: false}) %>
+                    <% } %>
+                </div>
+            </div>
+        </div>
+    <% } %>
+    <div class="article-inner post-body">
+        <% if (post.banner) { %>
+            <%- partial('post/banner') %>
+        <% } %>
+        <% if (post.link || post.title) { %>
+            <header class="article-header page-indent">
+                <% if (post.layout != 'page') { %>
+                    <div class="article-meta">
+                        <%- partial('post/category') %>
+                        <%- partial('post/tag') %>
+                        <%- partial('post/date', { class_name: 'article-date', date_format: null }) %>
+<% if (post.tags && post.tags.length) { %>
+                        <meta name="keywords" content="<%= typeof post.tags.toArray === 'function' ? post.tags.toArray().map(tag => tag.name).join(',') : (Array.isArray(post.tags) ? post.tags.map(tag => tag.name || tag).join(',') : '') %>">
+                        <% } %>
+                        <% if (theme.plugins.busuanzi_count) { %>
+                            <i class="fa fa-bar-chart"></i>
+                            <span id="busuanzi_page_pv">...</span>    
+                        <% } %>
+                        <% if (theme.history_control.enable) { 
+                            let repertory_address = `${theme.history_control.server_link}/${theme.history_control.user}/${theme.history_control.repertory}`;
+                            let file_path = `${theme.history_control.branch}/source/${post.source}`;%>
+                            <div class="article-meta-button">
+                                <a href='<%= `${repertory_address}/raw/${file_path}` %>'> Source </a>
+                            </div>
+                            <div class="article-meta-button">
+                                <a href='<%= `${repertory_address}/edit/${file_path}` %>'> Edit </a>
+                            </div>
+                            <div class="article-meta-button">
+                                <a href='<%= `${repertory_address}/commits/${file_path}` %>'> History </a>
+                            </div>
+                        <% } %>
+                        <div class="article-meta-button view-mode-toggle" style="float: right;">
+                            <a href="?fullpage=1" class="to-fullpage"><i class="fa fa-th-large"></i> 整站</a>
+                            <a href="<%- url_for(post.path) %>" target="_blank" class="to-singlepage" style="display: none; color: #b8bcc0;"><i class="fa fa-file-o"></i> 单页</a>
+                        </div>
+                        <script>
+                        (function() {
+                            // 检查是否在整站模式（有container或fullpage=1参数）
+                            var container = document.getElementById('container');
+                            var urlParams = new URLSearchParams(window.location.search);
+                            var isFullPage = urlParams.get('fullpage') === '1';
+                            
+                            if (container || isFullPage || window.location.hash) {
+                                // 整站模式，显示单页按钮
+                                document.querySelector('.to-fullpage').style.display = 'none';
+                                document.querySelector('.to-singlepage').style.display = 'inline';
+                            }
+                        })();
+                        </script>
+                    </div>
+                <% } %>
+                <%- partial('post/title', { class_name: 'article-title' }) %>
+            </header>
+        <% } %>
+        <%- partial('post/gallery') %>
+        <div class="article-entry page-indent" itemprop="articleBody text">
+        <% var show_all_content = true %>
+        <% if (index) { %>
+            <% if (post.excerpt || post.description) { %>
+                <% show_all_content = false %>
+                <p><%- post.excerpt || post.description %></p>
+            <% } else if (theme.auto_excerpt.enable) { %>
+                <% var br_position = 0 %>
+                <% for (var br_count = 0; br_count < theme.auto_excerpt.lines; br_count++) { %>
+                    <% br_position = post.content.indexOf('\n',br_position + 1) %>
+                    <% if(br_position < 0) { break } %>
+                <% } %>
+                <% if(br_position > 0) { %>
+                    <% show_all_content = false %>
+                    <p><%- post.content.substring(0, br_position + 1) %><p>
+                <% } %>
+            <% } %>
+        <% } %>
+        <% if (show_all_content) { %>
+            <%- post.content %>
+            </div>
+        <% } else { %>
+            </div> 
+            <div class="article-more-link">
+                <a href="<%- url_for(post.path) %>#more"
+                    onclick="onclickRoute(event, '<%- url_for(post.path) %>#more')"><%= __('article.more') %></a>
+            </div>
+        <% } %>
+        <footer class="article-footer">
+        </footer>
+    </div>
+</article>
+
+<% if (!index) { %>
+    <%- partial('post/nav') %>
+<% } %>
+
+<% if (!index) { %>
+    <%- partial('comment/index') %>
+<% } %>
+
+<% if (!index){ %>
+<!-- baidu url auto push script -->
+<script type="text/javascript">
+    !function(){var e=/([http|https]:\/\/[a-zA-Z0-9\_\.]+\.baidu\.com)/gi,r=window.location.href,o=document.referrer;if(!e.test(r)){var n="//api.share.baidu.com/s.gif";o?(n+="?r="+encodeURIComponent(document.referrer),r&&(n+="&l="+r)):r&&(n+="?l="+r);var t=new Image;t.src=n}}(window);
+</script>
+<% } %>
+
+<!-- 添加表格样式 -->
+<style type="text/css">
+.table-container table {
+    border: 2px solid #dfe1e2;
+    /* min-width: 70%; */
+}
+._table {
+    border: 2px solid #dfe1e2;
+}
+._table th {
+    font-weight: bold;
+    border: 1px solid #dfe1e2;
+    padding: 0.5em;
+    background-color: #f0f0f0;
+}
+._table td{
+    border: 1px solid #dfe1e2;
+    padding: 10px 5px;
+}
+.table-container th {
+    font-weight: bold;
+    border: 1px solid #dfe1e2;
+    padding: 0.5em;
+    background-color: #f0f0f0;
+}
+.table-container td{
+    border: 1px solid #dfe1e2;
+    padding: 10px 5px;
+}
+</style>
+
+<% if (!index && (post.toc || post.encrypt == true)) { %>
+<!-- TOC 收起/展开功能 -->
+<script data-pjax>
+(function() {
+    // 初始化 TOC 切换功能的函数
+    function initTocToggle() {
+        var tocWrapper = document.getElementById('toc-wrapper');
+        var tocToggleBtn = document.getElementById('toc-toggle-btn');
+        var tocTitle = document.getElementById('toc-title');
+        var tocContent = document.getElementById('toc-content');
+        var tocTitleIcon = document.getElementById('toc-title-icon');
+        
+        if (!tocWrapper || !tocToggleBtn) return;
+        
+        // 检查本地存储中的状态
+        var isCollapsed = localStorage.getItem('toc-collapsed') === 'true';
+        
+        // 初始化状态 - 只操作 wrapper 的 class
+        if (isCollapsed) {
+            tocWrapper.classList.add('collapsed');
+            tocWrapper.classList.remove('expanded');
+        } else {
+            tocWrapper.classList.add('expanded');
+            tocWrapper.classList.remove('collapsed');
+        }
+        
+        // 点击切换按钮
+        tocToggleBtn.addEventListener('click', function() {
+            var isNowCollapsed = tocWrapper.classList.contains('expanded');
+            
+            if (isNowCollapsed) {
+                // 收起
+                tocWrapper.classList.add('collapsed');
+                tocWrapper.classList.remove('expanded');
+                localStorage.setItem('toc-collapsed', 'true');
+            } else {
+                // 展开
+                tocWrapper.classList.add('expanded');
+                tocWrapper.classList.remove('collapsed');
+                localStorage.setItem('toc-collapsed', 'false');
+            }
+        });
+        
+        // 点击 toc-title 收起/展开目录内容
+        if (tocTitle && tocContent) {
+            tocTitle.addEventListener('click', function() {
+                var isContentCollapsed = tocContent.classList.contains('collapsed');
+                
+                if (isContentCollapsed) {
+                    // 展开
+                    tocContent.classList.remove('collapsed');
+                    tocContent.classList.add('expanded');
+                    if (tocTitleIcon) {
+                        tocTitleIcon.classList.remove('fa-angle-up');
+                        tocTitleIcon.classList.add('fa-angle-down');
+                    }
+                } else {
+                    // 收起
+                    tocContent.classList.add('collapsed');
+                    tocContent.classList.remove('expanded');
+                    if (tocTitleIcon) {
+                        tocTitleIcon.classList.remove('fa-angle-down');
+                        tocTitleIcon.classList.add('fa-angle-up');
+                    }
+                }
+            });
+            
+            // 初始化状态
+            tocContent.classList.add('expanded');
+        }
+    }
+    
+    // 立即执行初始化
+    initTocToggle();
+    
+    // 同时提供一个全局函数，供整页模式手动调用
+    window.initTocToggle = initTocToggle;
+})();
+</script>
+
+<% if (post.encrypt == true) { %>
+<!-- 加密文章 TOC 显示控制 -->
+<script data-pjax>
+(function() {
+    var toc = document.getElementById('toc');
+    if (!toc) return;
+    
+    // 检查文章是否已解密（文章内容是否可见且有实际内容）
+    function checkDecrypted() {
+        var articleEntry = document.querySelector('.article-entry');
+        if (!articleEntry) return false;
+        
+        // 检查内容是否可见且有实际内容（超过100字符）
+        var hasContent = articleEntry.innerHTML.length > 100;
+        var isVisible = articleEntry.offsetParent !== null;
+        
+        return hasContent && isVisible;
+    }
+    
+    // 根据解密状态显示/隐藏 TOC
+    function updateTocVisibility() {
+        if (checkDecrypted()) {
+            toc.style.display = 'block';
+        } else {
+            toc.style.display = 'none';
+        }
+    }
+    
+    // 初始检查
+    updateTocVisibility();
+    
+    // 监听点击事件（解密/加密按钮）
+    document.addEventListener('click', function() {
+        // 延迟检查，等待解密/加密操作完成
+        setTimeout(updateTocVisibility, 100);
+        setTimeout(updateTocVisibility, 500);
+    });
+    
+    // 提供全局函数供外部调用
+    window.showEncryptedToc = function() {
+        toc.style.display = 'block';
+    };
+    window.hideEncryptedToc = function() {
+        toc.style.display = 'none';
+    };
+})();
+</script>
+<% } %>
+<% } %>

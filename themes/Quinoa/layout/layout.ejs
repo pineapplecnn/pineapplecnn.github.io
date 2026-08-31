@@ -1,0 +1,115 @@
+<% 
+// 布局路由判断
+var layoutType = 'simple';
+
+if (page.layout === 'indexs') {
+    // 首页或 indexs 布局 - 使用完整布局
+    layoutType = 'full';
+} else if (['post', 'page', 'tags', 'categories'].includes(page.layout)) {
+    // 文章/页面/标签/分类页 - 使用简化布局
+    layoutType = 'simple';
+} else if (page.__index) {
+    // 列表页(list) - 使用完整布局
+    layoutType = 'simple';
+}
+%>
+
+<% if (layoutType === 'full') { %>
+    <%- partial('base/base') %>
+<% } else { %>
+    <%- partial('base/simple') %>
+<% } %>
+
+<script>
+    // anchorInterceptor
+    anchorInterceptor = function(path) {
+        // 添加 fullpage=1 参数表示整页打开
+        const separator = path.includes('?') ? '&' : '?';
+        const fullPath = path + separator + 'fullpage=1';
+        // change hash to trigger route change
+        window.location.hash = fullPath;
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        var container = document.getElementById('container');
+        
+        // 检查URL中是否有 fullpage=1 参数
+        var urlParams = new URLSearchParams(window.location.search);
+        var isFullPage = urlParams.get('fullpage') === '1';
+        
+        // 如果有 container（完整布局）或者 fullpage=1，执行跳转
+        if (container || isFullPage) {
+            var path = window.location.pathname;
+            var origin = window.location.origin;
+            console.log('path:',path, '\norigin:',origin);
+            console.log('document:', document);
+            // 如果已经在 hash 路由中，不需要跳转
+            if (window.location.hash) {
+                return;
+            }
+            // 如果path是根路径，跳转到首页hash
+            if (path === '/' || path === '' || path === '/index.html') {
+                window.location.href = origin + '#/';
+            } else {
+                window.location.href = origin + '#' + path;
+            }
+        }
+        // 否则不跳转，需要加载js、css来渲染单页面
+    });
+
+    // 切换到单页模式
+    switchToSinglePage = function() {
+        // 获取当前文章路径（从hash中提取或从pathname）
+        var path = window.location.hash ? window.location.hash.slice(1) : window.location.pathname;
+        // 移除fullpage参数
+        path = path.replace(/[?&]fullpage=1/, '');
+        // 在新标签页打开完整URL
+        window.open(window.location.origin + path, '_blank');
+    }
+
+    $(document).ready(function() {
+        if ($('#toggle-sidebar-btn').hasClass('fa-angle-right')) {
+            $('.page-indent').toggleClass('collapsed');
+            $('.article-meta').toggleClass('collapsed');
+            $('.article-more-link').toggleClass('collapsed');
+        }
+        const colorIndex = localStorage.getItem("ColorIndex");
+        // init color
+        changeBackgroundColor(BackColors[colorIndex]);
+    });
+
+    anchorComponentOnclick = function(event) {
+        // 文章的头链接 | 点击监听
+        $('.article-category-link').on('click', function(event) {
+            event.preventDefault();
+            const path = $(this).attr('href');
+            anchorInterceptor(path);
+        });
+        // 目录的跳转 | 点击监听
+        $('.toc-link').on('click', function(event) {
+            event.preventDefault();
+            const params = new URLSearchParams(window.location.search);
+            //const sectionId = $(this).attr('href').replace('?section=', '');
+            // 更新 URL，但不刷新页面
+            const idx = decodeURIComponent($(this).attr('href')).slice(1);
+            if (idx != 'ndefined') {
+                params.set('section', idx);
+                const curPath = window.location.pathname + window.location.hash.split('?section=')[0];
+                const newUrl = curPath + '?' + params.toString();
+                window.history.pushState({}, '', newUrl);
+                // 滚动到对应位置
+                scrollToSection(idx);
+            }
+        });
+        $('.tag-link-link').on('click', function(event) {
+            event.preventDefault();
+            const path = $(this).attr('href');
+            anchorInterceptor(path);
+        });
+        $('#page-nav').on('click', 'a', function(event) {
+            event.preventDefault();
+            const path = $(this).attr('href');
+            anchorInterceptor(path);
+        });
+    }
+</script>

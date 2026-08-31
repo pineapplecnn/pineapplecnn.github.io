@@ -1,0 +1,91 @@
+<header id="header">
+    <div id="header-main" class="header-inner">
+        <div class="outer">
+            <a href="<%- url_for() %>" id="logo" onclick="onclickRoute(event, '<%- url_for() %>')">
+                <%- (theme.customize.logo && theme.customize.logo.enabled ? '<i class="logo"></i>':'') %>
+                <span class="site-title"><%= config['site-title'] || config.title %></span>
+            </a>
+            <nav id="main-nav">
+                <% for (var i in theme.menu) { %>
+                    <a class="main-nav-link" href="<%- url_for(theme.menu[i]) %>"
+                        onclick="onclickRoute(event, '<%- url_for(theme.menu[i]) %>')"><%= i %></a>
+                <% } %>
+            </nav>
+            <% if(theme.customize.profile && theme.customize.profile.enabled) { %>
+                <% var profile = theme.customize.profile; %>
+                <nav id="sub-nav">
+                    <div class="profile" id="profile-nav">
+                        <a id="profile-anchor" href="javascript:;">
+                            <img class="avatar" src="<%= ( profile.gravatar ? gravatar(profile.gravatar) : url_for(profile.avatar)) %>" />
+                            <i class="fa fa-caret-down"></i>
+                        </a>
+                    </div>
+                </nav>
+            <% } %>
+            <%- partial('search/index') %>
+            <div id="color-toggle-btn">
+                <i class="fa fa-adjust fa-lg"></i>
+            </div>
+        </div>
+    </div>
+    <div id="main-nav-mobile" class="header-sub header-inner">
+        <table class="menu outer">
+            <tr>
+                <% for (var i in theme.menu) { %>
+                    <td>
+                        <a class="main-nav-link" href="<%- url_for(theme.menu[i]) %>"
+                            onclick="onclickRoute(event, '<%- url_for(theme.menu[i]) %>')"><%= i %></a>
+                    </td>
+                <% } %>
+                <td>
+                    <%- partial('search/index-mobile') %>
+                </td>
+            </tr>
+        </table>
+    </div>
+</header>
+<script>
+// 十六进制转 RGB
+function hexToRgb(hex) {
+  if (!hex) return null;
+  hex = hex.replace('#', '');
+  let r = parseInt(hex.slice(0, 2), 16);
+  let g = parseInt(hex.slice(2, 4), 16);
+  let b = parseInt(hex.slice(4, 6), 16);
+  return { r, g, b };
+}
+
+// 调整颜色
+function adjustColor(color, adjustment) {
+    if (!color) return null;
+  let { r, g, b } = hexToRgb(color);
+  r = Math.min(255, Math.max(0, r + adjustment)); // 确保不超过范围
+  g = Math.min(255, Math.max(0, g + adjustment));
+  b = Math.min(255, Math.max(0, b + adjustment));
+  return `rgb(${r}, ${g}, ${b})`;
+}
+
+// RGB 转十六进制
+function rgbToHex(r, g, b) {
+  return `#${(1 << 24 | r << 16 | g << 8 | b).toString(16).slice(1).toUpperCase()}`;
+}
+
+const BackColors = ['#FFFFFF', '#F0FFF0', '#FFFFF0']; // Define background colors
+let ColorIndex = 0;
+function changeBackgroundColor(newColor) {
+    $('.outer, .widget-wrap h3, body, .article-inner, .article-inner .article-meta').css('background-color', newColor);
+    $('.article-entry blockquote').css('background-color', adjustColor(newColor, -10)).css('border-left','4px solid #c8c8c8');
+    $('.toc-article').css('background-color', adjustColor(newColor, -5));
+    $('.timeline-row .content').css('background-color', adjustColor(newColor, -2));
+}
+
+$(document).ready(function() {
+    changeBackgroundColor(BackColors[ColorIndex]);
+    $('#color-toggle-btn').click(function() {
+        ColorIndex = (ColorIndex + 1) % BackColors.length;
+        const newColor = BackColors[ColorIndex];
+        changeBackgroundColor(newColor);
+        localStorage.setItem("ColorIndex", ColorIndex);
+    });
+});
+</script>

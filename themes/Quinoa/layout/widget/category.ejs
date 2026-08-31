@@ -1,0 +1,503 @@
+<% if (site.categories.length) { %>
+    <div class="widget-wrap" id='categories'>
+        <h3 class="widget-title">
+            <span><%= __('widget.categories') %></span>
+            &nbsp;
+            <a id='allExpand' href="#">
+                <i class="fa fa-angle-double-<%- theme.customize.category_perExpand ? 'up' : 'down' %> fa-2x"></i>
+            </a>
+        </h3>
+        
+        <% 
+            function listCategories(categories, posts) {
+                function layArticles(posts) {
+                    var classifiedArticles = {'_root': []};
+                    posts.forEach(function(post,i){
+                            var last_post_cat;
+                            var post_info = {
+                            "title": post.title,
+                            "path": url_for(post.path),
+                            "_id": post._id
+                        };
+                        if(post.categories.length) {
+                            last_cat_id = post.categories.data.slice(-1)[0]['_id'];
+                            if(!classifiedArticles[last_cat_id]) classifiedArticles[last_cat_id] = [];
+                            classifiedArticles[last_cat_id].push(post_info);
+                        } else {
+                            classifiedArticles['_root'].push(post_info);
+                        }
+                    });
+                    function getSortKey(title) {
+                        var firstChar = title.charAt(0);
+                        if (/[0-9]/.test(firstChar)) {
+                            return { type: 0, char: firstChar };
+                        } else if (/[a-zA-Z]/.test(firstChar)) {
+                            return { type: 1, char: firstChar.toLowerCase() };
+                        } else {
+                            return { type: 2, char: firstChar };
+                        }
+                    }
+                    function sortArticles(a, b) {
+                        var keyA = getSortKey(a.title);
+                        var keyB = getSortKey(b.title);
+                        if (keyA.type !== keyB.type) {
+                            return keyA.type - keyB.type;
+                        }
+                        if (keyA.type === 2) {
+                            return a.title.localeCompare(b.title, 'zh-CN');
+                        }
+                        return a.title.localeCompare(b.title, 'en');
+                    }
+                    Object.keys(classifiedArticles).forEach(function(key) {
+                        classifiedArticles[key].sort(sortArticles);
+                    });
+                    return classifiedArticles;
+                }
+                function prepareQuery(categories, parent) {
+                    var query = {};
+                    if (parent) {
+                        query.parent = parent;
+                    } else {
+                        query.parent = {$exists: false};
+                    }
+                    return categories.find(query).sort('name', 1).filter(function(cat) {
+                        return cat.length;
+                    });
+                }
+                function hierarchicalList(tree, parent, classifiedArticles) {
+                  if(!tree.name) tree = {"name": "_root", "_id": "_root", "children": [], "articles": classifiedArticles['_root']};
+                  prepareQuery(categories, parent).forEach(function(cat, i) {
+                      var now_category = {
+                          "_id": cat._id, 
+                          "name": cat.name, 
+                          "children": [],
+                          "articles": classifiedArticles[cat._id]
+                      };
+                      if(is_post() && now_category.articles) {
+                          now_category.articles.forEach(function(post, i) {
+                              if(page._id == post._id) now_category["selected"] = true;
+                          });
+                      }
+                      var childTree = hierarchicalList(now_category, cat._id, classifiedArticles);
+                      if(childTree.selected) {tree["selected"] = true};
+                      tree.children.push(childTree);
+                  });
+                  return tree;
+                }
+                var classifiedArticles = layArticles(posts);
+                var categoriesTree = hierarchicalList({}, null, classifiedArticles);
+                return categoriesTree;
+            }
+        %>
+        <% 
+            function visitTreePosts(branch, perExpand, parentId = '') {
+                const currentId = parentId ? `${parentId}-${branch._id}` : branch._id;
+             %> <ul class="unstyled" id="tree" <% if(perExpand) { %>style="display: block;"<% } %>> <%
+                if(branch.children && branch.children.length) {
+                    branch.children.forEach(function(category){
+                    %>
+                    <li class="directory<%- category.selected ? ' open' : '' %>">
+                        <a href="#" data-role="directory" data-id="<%- currentId %>-<%- category._id %>">
+                            <i class="fa fa-folder<%- (perExpand || category.selected) ? '-open-o' : '-o' %>"></i>
+                            &nbsp;
+                            <%- category.name %>
+                        </a>
+                        <% visitTreePosts(category, perExpand, currentId) %>
+                    </li> 
+                    <%  
+                    });
+                } 
+                if(branch.articles && branch.articles.length) {
+                    branch.articles.forEach(function(post){
+                        %> <li class="file<%- (is_post() && post._id == page._id) ? ' active' : '' %>">
+                            <a href="<%- post.path %>" data-id="<%- currentId %>-<%- post._id %>"
+                                onclick="onclickRoute(event, '<%- post.path %>', 1)"><%- post.title %></a>
+                        </li> <%
+                    });
+                }
+             %> </ul> <%
+            }
+        %>
+        <%
+            var categoriesTree = listCategories(site.categories, site.posts);
+            visitTreePosts(categoriesTree, theme.customize.category_perExpand);
+        %>
+    </div>
+    <script>
+        onclickRoute = function(e, path) {
+            onclickRoute(e, path, 0)
+        }
+        onclickRoute = function(e, path, type) {
+            e.preventDefault();
+            // 添加 fullpage=1 参数表示整页打开
+            const separator = path.includes('?') ? '&' : '?';
+            const fullPath = path + separator + 'fullpage=1';
+            // 修改 URL（不刷新页面）
+            history.pushState({ articlePath: fullPath }, '', '#' + fullPath);
+            loadArticleContent(path, type);
+        }
+
+        expandCategories = function(path, type) {
+            if (type != 1) {
+                // 1. 先收起所有已展开的目录（重置状态）
+                $('#categories a[data-role="directory"]').each(function() {
+                    const $dirLink = $(this);
+                    const $icon = $dirLink.children('.fa');
+                    const $subtree = $dirLink.siblings('ul');
+                    
+                    // 只处理已展开的目录
+                    if ($icon.hasClass('fa-folder-open-o')) {
+                        $icon.removeClass('fa-folder-open-o').addClass('fa-folder-o');
+                        $subtree.slideUp({ duration: 100 });
+                    }
+                });
+            }
+
+            // 2. 查找对应文章项（兼容带#more后缀的URL）
+            const encodedPath = encodeURI(path);
+            let $articleLink = $(`#categories .file a[href="${encodedPath}"]`);
+            
+            // 若未找到，尝试去掉#more后缀查找
+            if (!$articleLink.length) {
+                const pathWithoutMore = path.split("#more")[0];
+                $articleLink = $(`#categories .file a[href="${pathWithoutMore}"]`);
+            }
+
+            // 若未找到，尝试去掉#more后缀查找
+            if (!$articleLink.length) {
+                const pathWithoutSection = path.split("?section")[0];
+                $articleLink = $(`#categories .file a[href="${pathWithoutSection}"]`);
+            }
+
+            if (!$articleLink.length) {
+                console.log('未找到对应的文章项');
+                return;
+            }
+
+            // 3. 展开目标目录层级
+            const articleId = $articleLink.data('id');
+            const idParts = articleId.split('-');
+            let currentId = '';
+
+            idParts.slice(0, -1).forEach((part, i) => { // 简化循环逻辑
+                currentId += (i === 0 ? '' : '-') + part;
+                const $dirLink = $(`#categories a[data-role="directory"][data-id="${currentId}"]`);
+                
+                if ($dirLink.length) {
+                    const $icon = $dirLink.children('.fa');
+                    const $subtree = $dirLink.siblings('ul');
+                    
+                    if (!$icon.hasClass('fa-folder-open-o')) {
+                        $icon.removeClass('fa-folder-o').addClass('fa-folder-open-o');
+                        $subtree.slideDown({ duration: 100 });
+                    }
+                }
+            });
+
+            // 4. 滚动到文章项位置（优化DOM查找）
+            const $articleItem = $articleLink.closest('li');
+            const scrollTop = $articleItem.offset().top - $('#categories').offset().top + $('#categories').scrollTop();
+            $('#categories').animate({ scrollTop }, 600);
+        }
+
+        postFetch = async function(path) {
+            try {
+                const response = await fetch(`${path}`);
+                if (!response.ok) {
+                    throw new Error(`加载 ${path} 失败`);
+                }
+                const html = await response.text();
+                const main = document.getElementById('main');
+                
+                // 解析HTML，提取内容部分
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+                
+                // 尝试获取 post-main 或 main 的内容
+                let content = doc.getElementById('post-main');
+                if (!content) {
+                    content = doc.getElementById('main');
+                }
+                if (!content) {
+                    content = doc.body;
+                }
+                
+                main.innerHTML = content.innerHTML;
+
+                renderPage(main, path)
+
+                // 重新执行scripts，让解密组件生效
+                const scripts = main.querySelectorAll('script[data-pjax]');
+                scripts.forEach(oldScript => {
+                const newScript = document.createElement('script');
+                    if (oldScript.src) {
+                        newScript.src = oldScript.src;
+                    } else {
+                        newScript.textContent = oldScript.textContent;
+                    }
+                    // 拷贝属性
+                    Array.from(oldScript.attributes).forEach(attr => {
+                        newScript.setAttribute(attr.name, attr.value);
+                    });
+                    document.body.appendChild(newScript);
+                });
+
+                // 检测并懒加载 MathJax（如果文章包含数学公式）
+                if (main.innerHTML.match(/\$\$?[\s\S]*?\$\$?/) || main.querySelector('.math')) {
+                    if (window.MathJax) {
+                        // MathJax 已加载，直接渲染
+                        MathJax.Hub.Queue(["Typeset", MathJax.Hub, main]);
+                    } else {
+                        // 动态加载 MathJax
+                        loadMathJax(main);
+                    }
+                }
+                
+                if (window.mermaid) {
+                    mermaid.init(undefined, document.querySelectorAll('.mermaid'));
+                }
+                addPostEventListener(path);
+                // 4. 新版 busuanzi 自动统计，无需手动调用                     
+            } catch (error) {
+                console.error(error);
+            }
+        }
+
+        renderPage = function(main, path) {
+            // 1. 如果当前页面根本没有 mermaid 代码块，就啥也不干，直接返回
+            if (!main.querySelector('.mermaid')) {
+                return;
+            }
+            // 2. 如果之前已经加载过 mermaid了（全局只加载一次，节省流量和性能）
+            if (window.mermaid) {
+                mermaid.initialize({ startOnLoad: true });  // 重新初始化配置
+                mermaid.init(undefined, main.querySelectorAll('.mermaid')); // 重新渲染当前页面的图
+                return;
+            }
+            // 3. 第一次遇到 mermaid，才真正动态加载 mermaid.min.js
+            const newScript = document.createElement('script');
+            //newScript.src = 'https://unpkg.com/mermaid@10/dist/mermaid.min.js';
+            newScript.src = '/libs/mermaid/10.9.5/mermaid.min.js'
+            newScript.crossOrigin = 'anonymous';
+            newScript.onload = function () {
+                // js 加载完成后再初始化
+                window.mermaid.initialize({
+                startOnLoad: false,      // 我们手动调用 init，不要它自动找整个 document
+                theme: 'default',        // 或 'forest'、'dark'、'neutral' 随便你
+                flowchart: { useMaxWidth: true },
+                securityLevel: 'loose'   // 允许 innerHTML 等，动态页面必须
+                });
+
+                // 只渲染当前容器里的 mermaid 代码块，不影响其他页面历史残留
+                window.mermaid.init(undefined, main.querySelectorAll('.mermaid'));
+            };
+            newScript.onerror = function () {
+                console.error('Mermaid 加载失败');
+            };
+            // 5. 把 script 标签塞到 head（或 body 末尾都行）
+            document.head.appendChild(newScript);
+        }
+
+        // 动态加载 MathJax
+        loadMathJax = function(container) {
+            // 配置 MathJax
+            window.MathJax = {
+                tex2jax: {
+                    inlineMath: [['$', '$'], ['\\$', '\\$']],
+                    displayMath: [['$$', '$$']]
+                },
+                jax: ["input/TeX", "output/HTML-CSS"],
+                "HTML-CSS": {
+                    webFont: "none",
+                    availableFonts: ["Asana Math", "STIX", "Latin Modern"],
+                    preferredFont: "Asana Math",
+                    imageFont: "TeX"
+                },
+                "SVG": {
+                    font: "STIX-Web",
+                    blacker: 0.01,
+                    linebreaks: { automatic: true }
+                },
+                showProcessingMessages: false,
+                messageStyle: "none",
+                showMathMenu: false,
+                menuSettings: { zoom: "Double-Click" }
+            };
+            
+            const script = document.createElement('script');
+            script.src = 'https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.9/MathJax.js?config=TeX-AMS_CHTML';
+            script.async = true;
+            script.onload = function() {
+                // 加载完成后渲染当前容器的公式
+                MathJax.Hub.Queue(["Typeset", MathJax.Hub, container]);
+            };
+            script.onerror = function() {
+                console.error('MathJax 加载失败');
+            };
+            document.head.appendChild(script);
+        }
+
+        // 监听(categories、tags等)点击事件，做链接的拦截处理
+        addPostEventListener = function(path) {
+            if (path === 'categories' || path === '/categories') {
+                $('.category-list-link').on('click', function(event) {
+                    event.preventDefault();
+                    const path = '#/' + $(this).attr('href');
+                    anchorInterceptor(path);
+                });
+            } else if (path === 'tags' || path === '/tags') {
+                $('.tag-cloud').on('click', 'a', function(event) {
+                    event.preventDefault();
+                    const path = '#/' +$(this).attr('href');
+                    anchorInterceptor(path);
+                });
+            }
+            // 检查整站/单页模式，切换按钮显示
+            updateViewModeToggle();
+            anchorComponentOnclick();
+            loadbackgroundColor();
+        }
+
+        // 更新整站/单页切换按钮显示
+        updateViewModeToggle = function() {
+            var container = document.getElementById('container');
+            var urlParams = new URLSearchParams(window.location.search);
+            var isFullPage = urlParams.get('fullpage') === '1';
+            
+            if (container || isFullPage || window.location.hash) {
+                // 整站模式，显示单页按钮
+                $('.to-fullpage').hide();
+                $('.to-singlepage').show();
+            } else {
+                // 单页模式，显示整站按钮
+                $('.to-fullpage').show();
+                $('.to-singlepage').hide();
+            }
+        }
+
+        loadbackgroundColor = function() {
+            const colorIndex = localStorage.getItem("ColorIndex");
+            const currentIndex = (colorIndex) % BackColors.length;
+            const newColor = BackColors[currentIndex];
+            changeBackgroundColor(newColor);
+        }
+
+        function checkUrlAndScroll() {
+            const params = new URLSearchParams(window.location.search);
+            const sectionId = params.get('section');
+            if (sectionId) {
+                scrollToSection(sectionId);
+            }
+        }
+
+        function scrollToSection(id) {
+            const el = document.getElementById(id);
+            if (el) {
+                const y = el.getBoundingClientRect().top + window.scrollY - 60;
+                window.scrollTo({ top: y, behavior: 'smooth' });
+            }
+        }
+
+        // 首次加载检查
+        checkUrlAndScroll();
+
+
+        loadArticleContent = function(path, expandType) {
+            if('/' != path) {
+                postFetch(path);
+            } else {
+                postFetch('list');
+            }
+            console.log('path:' + path);
+            expandCategories(path, expandType);
+        }
+
+        handleHashRouteChange = function() {
+            var pathV = window.location.hash;
+            console.log(pathV)
+            var hash = window.location.hash.slice(2) || '';
+            // 移除查询参数
+            hash = hash.split('?')[0];
+            if(hash && hash !== '/') {
+                postFetch(hash);
+                expandCategories('/' + hash, 0);
+            } else {
+                postFetch('list');
+            }
+        }
+
+        // expand categories
+        listenCategories = function() {
+            var iconFolderOpenClass  = 'fa-folder-open-o';
+            var iconFolderCloseClass = 'fa-folder-o';
+            var iconAllExpandClass = 'fa-angle-double-down';
+            var iconAllPackClass = 'fa-angle-double-up';
+            // Handle directory-tree expansion:
+            // 左键单独展开目录
+            $(document).on('click', '#categories a[data-role="directory"]', function (event) {
+                event.preventDefault();
+                var icon = $(this).children('.fa');
+                var expanded = icon.hasClass(iconFolderOpenClass);
+                var subtree = $(this).siblings('ul');
+                icon.removeClass(iconFolderOpenClass).removeClass(iconFolderCloseClass);
+                if (expanded) {
+                    if (typeof subtree != 'undefined') {
+                        subtree.slideUp({ duration: 100 });
+                    }
+                    icon.addClass(iconFolderCloseClass);
+                } else {
+                    if (typeof subtree != 'undefined') {
+                        subtree.slideDown({ duration: 100 });
+                    }
+                    icon.addClass(iconFolderOpenClass);
+                }
+            });
+            // 右键展开下属所有目录
+            $('#categories a[data-role="directory"]').bind("contextmenu", function(event){
+                event.preventDefault();
+                
+                var icon = $(this).children('.fa');
+                var expanded = icon.hasClass(iconFolderOpenClass);
+                var listNode = $(this).siblings('ul');
+                var subtrees = $.merge(listNode.find('li ul'), listNode);
+                var icons = $.merge(listNode.find('.fa'), icon);
+                icons.removeClass(iconFolderOpenClass).removeClass(iconFolderCloseClass);
+                if(expanded) {
+                    subtrees.slideUp({ duration: 100 });
+                    icons.addClass(iconFolderCloseClass);
+                } else {
+                    subtrees.slideDown({ duration: 100 });
+                    icons.addClass(iconFolderOpenClass);
+                }
+            })
+            // 展开关闭所有目录按钮
+            $(document).on('click', '#allExpand', function (event) {
+                event.preventDefault();
+                
+                var icon = $(this).children('.fa');
+                var expanded = icon.hasClass(iconAllExpandClass);
+                icon.removeClass(iconAllExpandClass).removeClass(iconAllPackClass);
+                if(expanded) {
+                    // 使用与文件夹点击事件一致的图标类名
+                    $('#sidebar .fa.' + iconFolderCloseClass).removeClass(iconFolderCloseClass).addClass(iconFolderOpenClass);
+                    $('#categories li ul').slideDown({ duration: 100 });
+                    icon.addClass(iconAllPackClass);
+                } else {
+                    // 使用与文件夹点击事件一致的图标类名
+                    $('#sidebar .fa.' + iconFolderOpenClass).removeClass(iconFolderOpenClass).addClass(iconFolderCloseClass);
+                    $('#categories li ul').slideUp({ duration: 100 });
+                    icon.addClass(iconAllExpandClass);
+                }
+            });
+        }
+  
+        $(document).ready(function() {
+            // init route change
+            handleHashRouteChange();
+            // listen hash change
+            window.addEventListener('hashchange', handleHashRouteChange);
+            // listen categories
+            listenCategories();
+        });
+    </script>
+<% } %>
