@@ -1,3 +1,9 @@
+---
+title: 树形结构查询SQL
+date: 2025-11-12 11:24:33
+updated: 2026-08-30 17:43:59
+---
+
 1. inner join 自连接 / left join似乎也可以？
 
 2. WITH AS 递归查询

@@ -1,3 +1,9 @@
+---
+title: 0常用SQL
+date: 2026-01-28 11:52:13
+updated: 2026-08-30 17:43:59
+---
+
 ## 数据备份
 ``` mysqldump -uroot  -p123456 -d databsename tablename > /path/to/mytable.sql``` 
 
