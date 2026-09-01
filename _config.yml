@@ -3,11 +3,11 @@
 ## Source: https://github.com/hexojs/hexo/
 
 # Site
-title: Hexo
+title: Bin's Blog
 subtitle: ''
 description: ''
 keywords:
-author: John Doe
+author: Bin Wang
 language: en
 timezone: ''
 
@@ -97,8 +97,8 @@ ignore:
 # Extensions
 ## Plugins: https://hexo.io/plugins/
 ## Themes: https://hexo.io/themes/
-# theme: landscape
-theme: Quinoa
+theme: landscape
+#theme: Quinoa
 
 # Deployment
 ## Docs: https://hexo.io/docs/one-command-deployment
